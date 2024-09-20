@@ -50,25 +50,31 @@ export default function Log() {
       setLoading(true);
       try {
         const snapshot = await getDocs(logCollectionRef);
-        const logsData: AccessLog[] = snapshot.docs.map((doc) => {
+        const logsData = snapshot.docs.map((doc) => {
           const data = doc.data();
-
-          // Convert Firestore Timestamps to readable strings
-          const formattedDate = (data.date as Timestamp)?.toDate().toLocaleDateString() || '';
-          const formattedCheckin = (data.checkin as Timestamp)?.toDate().toLocaleTimeString() || '';
-          const formattedCheckout = (data.checkout as Timestamp)?.toDate().toLocaleTimeString() || '';
 
           return {
             id: doc.id,
             name: data.name || '',
             position: data.position || '',
-            date: formattedDate,
-            checkinTime: formattedCheckin,
-            checkoutTime: formattedCheckout,
-          } as AccessLog;
+            date: (data.date as Timestamp)?.toDate(),
+            checkinTime: (data.checkin as Timestamp)?.toDate(),
+            checkoutTime: (data.checkout as Timestamp)?.toDate(),
+          };
         });
 
-        setRows(logsData);
+        // Sort by check-in time in descending order (latest first)
+        logsData.sort((a, b) => (b.checkinTime?.getTime() || 0) - (a.checkinTime?.getTime() || 0));
+
+        // Convert timestamps to readable strings for display
+        const formattedLogs = logsData.map((log) => ({
+          ...log,
+          date: log.date?.toLocaleDateString() || '',
+          checkinTime: log.checkinTime?.toLocaleTimeString() || '',
+          checkoutTime: log.checkoutTime?.toLocaleTimeString() || '',
+        }));
+
+        setRows(formattedLogs);
       } catch (error) {
         console.error('Error fetching logs:', error);
       } finally {

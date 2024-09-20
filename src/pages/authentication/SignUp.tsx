@@ -87,7 +87,7 @@ const SignUp = () => {
           justifyContent="space-between"
           spacing={1}
         >
-          <Typography variant="h3">Sign up</Typography>
+          <Typography variant="h3">Add an admin</Typography>
           <Typography variant="subtitle2" color="neutral.main">
             Have an account?{' '}
             <Link href={paths.signin} underline="hover">
@@ -104,7 +104,7 @@ const SignUp = () => {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
+              placeholder="Enter the name"
               autoComplete="name"
               fullWidth
               required

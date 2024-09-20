@@ -142,15 +142,16 @@ export default function UsersList() {
       | HTMLTextAreaElement
       | { name?: string; value: unknown };
 
-    if (name === 'email' && typeof value === 'string' && value !== '') {
+    if (name === 'email' && typeof value === 'string') {
       const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailPattern.test(value)) {
         setEmailError('Please enter a valid email address.');
-        return;
+      } else {
+        setEmailError('');
       }
-      setEmailError('');
     }
 
+    // Allow form update regardless of validation
     setUserForm({ ...userForm, [name!]: value });
   };
 
@@ -201,6 +202,7 @@ export default function UsersList() {
   const openAddUserModal = () => {
     setEditUserId(null);
     setUserForm({ name: '', position: '', email: '', gender: '', status: '' });
+    setEmailError('');
     setOpenModal(true);
   };
 
@@ -424,7 +426,11 @@ export default function UsersList() {
             <MenuItem value="Female">Female</MenuItem>
           </Select>
           <Stack direction="row" spacing={5} mt={3}>
-            <Button onClick={() => setOpenModal(false)} variant="outlined" style={{backgroundColor: '#E32636', color: 'white'}}>
+            <Button
+              onClick={() => setOpenModal(false)}
+              variant="outlined"
+              style={{ backgroundColor: '#E32636', color: 'white' }}
+            >
               Cancel
             </Button>
             <Button

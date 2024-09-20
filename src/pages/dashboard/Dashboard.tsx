@@ -2,9 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography, Card, CardContent, Grid, CircularProgress } from '@mui/material';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/FirebaseConfig';
-import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  ArcElement,
+} from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
 import { Timestamp } from 'firebase/firestore';
+
+import jere from '../../assets/imgs/jere.jfif';
 
 // Define AccessLog interface here or import from a shared file
 interface AccessLog {
@@ -60,9 +71,11 @@ const Dashboard = () => {
 
   // Calculate latest and average check-in times
   const latestCheckinTime = latestUser ? convertTimeToMinutes(latestUser.checkinTime) : 0;
-  const averageCheckinTime = userLogs.length > 0 
-    ? userLogs.reduce((acc, log) => acc + convertTimeToMinutes(log.checkinTime), 0) / userLogs.length
-    : 0;
+  const averageCheckinTime =
+    userLogs.length > 0
+      ? userLogs.reduce((acc, log) => acc + convertTimeToMinutes(log.checkinTime), 0) /
+        userLogs.length
+      : 0;
 
   // Pie chart data
   const checkinData = {
@@ -78,18 +91,18 @@ const Dashboard = () => {
 
   // Prepare data for the bar chart
   const chartData = {
-    labels: userLogs.map(log => log.date),
+    labels: userLogs.map((log) => log.date),
     datasets: [
       {
         label: 'Check-in Time',
-        data: userLogs.map(log => convertTimeToMinutes(log.checkinTime)),
+        data: userLogs.map((log) => convertTimeToMinutes(log.checkinTime)),
         backgroundColor: 'rgba(75, 192, 192, 0.2)',
         borderColor: 'rgba(75, 192, 192, 1)',
         borderWidth: 1,
       },
       {
         label: 'Check-out Time',
-        data: userLogs.map(log => convertTimeToMinutes(log.checkoutTime)),
+        data: userLogs.map((log) => convertTimeToMinutes(log.checkoutTime)),
         backgroundColor: 'rgba(153, 102, 255, 0.2)',
         borderColor: 'rgba(153, 102, 255, 1)',
         borderWidth: 1,
@@ -105,16 +118,22 @@ const Dashboard = () => {
         </Box>
       ) : (
         <>
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h5" gutterBottom>Latest User Added</Typography>
+        <div style={{display: 'flex', gap: '1'}}>
+          <Paper sx={{ p: 3, mb: 3 }} style={{width: '30vw', margin:'1rem'}}>
+            <Typography variant="h5" gutterBottom>
+              Latest scanned employee
+            </Typography>
             {latestUser ? (
-              <Card>
+              <Card style={{width: '20vw'}}>
                 <CardContent>
-                  <Typography variant="h6">{latestUser.name}</Typography>
-                  <Typography variant="body2">Position: {latestUser.position}</Typography>
-                  <Typography variant="body2">Date: {latestUser.date}</Typography>
-                  <Typography variant="body2">Check-in Time: {latestUser.checkinTime}</Typography>
-                  <Typography variant="body2">Check-out Time: {latestUser.checkoutTime}</Typography>
+                <img style={{ width: '13rem', borderRadius: '50%' }} src={jere} alt="jere" />
+                </CardContent>
+                <CardContent style={{}}>
+                  <Typography variant="h6"style={{fontSize:'2rem', color: '#5A4FCF'}}>{latestUser.name}</Typography>
+                  <Typography variant="body2"style={{fontSize:'1rem', color: '#002147'}}>Position: {latestUser.position}</Typography>
+                  <Typography variant="body2" style={{fontSize:'1rem', color: '#002147'}}>Date: {latestUser.date}</Typography>
+                  <Typography variant="body2" style={{fontSize:'1rem', color: '#002147'}}>Check-in Time: {latestUser.checkinTime}</Typography>
+                  <Typography variant="body2" style={{fontSize:'1rem', color: '#002147'}}>Check-out Time: {latestUser.checkoutTime}</Typography>
                 </CardContent>
               </Card>
             ) : (
@@ -122,27 +141,36 @@ const Dashboard = () => {
             )}
           </Paper>
 
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h5" gutterBottom>Check-in Times</Typography>
+          <Paper sx={{ p: 3, mb: 3 }} style={{width: '40vw', margin:'1rem'}}>
+            <Typography variant="h5" gutterBottom>
+              Check-in Times
+            </Typography>
             <Box display="flex" justifyContent="space-around">
-              <Box sx={{ width: '45%' }}>
-                <Typography variant="h6" gutterBottom>Latest Check-in Time</Typography>
+              <Box sx={{ width: '40%' }}>
+                <Typography variant="h6" gutterBottom>
+                  Latest Check-in Time
+                </Typography>
                 <Pie data={checkinData} />
               </Box>
-              <Box sx={{ width: '45%' }}>
-                <Typography variant="h6" gutterBottom>Average Check-in Time from Previous Logs</Typography>
+              <Box sx={{ width: '40%' }}>
+                <Typography variant="h6" gutterBottom>
+                  Avg Checkin-Time vs Previous Logs
+                </Typography>
                 <Pie data={checkinData} />
               </Box>
             </Box>
           </Paper>
+          </div>
 
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h5" gutterBottom>User Cards</Typography>
+            <Typography variant="h5" gutterBottom>
+              All users
+            </Typography>
             <Grid container spacing={2}>
               {userLogs.map((user) => (
                 <Grid item xs={12} sm={6} md={4} key={user.id}>
                   <Card>
-                    <CardContent>
+                    <CardContent style={{backgroundColor:'#E6E6FA', color: '#1d1160'}}>
                       <Typography variant="h6">{user.name}</Typography>
                       <Typography variant="body2">Position: {user.position}</Typography>
                       <Typography variant="body2">Date: {user.date}</Typography>

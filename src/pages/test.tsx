@@ -5,12 +5,8 @@ import {
   Checkbox,
   CircularProgress,
   InputAdornment,
-  MenuItem,
-  Modal,
   Paper,
-  Select,
   Stack,
-  Switch,
   Table,
   TableBody,
   TableCell,
@@ -22,61 +18,67 @@ import {
   Typography,
   IconButton,
 } from '@mui/material';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
+import DeleteIcon from '@mui/icons-material/Delete';
 import Swal from 'sweetalert2';
-import { collection, deleteDoc, doc, getDocs, setDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/FirebaseConfig';
+import * as XLSX from 'xlsx'; // For exporting to Excel
+import { Timestamp } from 'firebase/firestore'; // Import Firestore Timestamp
 
-interface User {
+interface AccessLog {
   id: string;
   name: string;
-  email: string;
   position: string;
-  gender: string;
-  status: string;
-  uid?: string; // Optional for the new user UID
+  date: string;
+  checkinTime: string;
+  checkoutTime: string;
 }
 
-export default function UsersList() {
-  const [rows, setRows] = useState<User[]>([]);
+export default function Log() {
+  const [rows, setRows] = useState<AccessLog[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [openModal, setOpenModal] = useState<boolean>(false);
-  const [editUserId, setEditUserId] = useState<string | null>(null);
-  const [userForm, setUserForm] = useState<Omit<User, 'id' | 'uid'>>({
-    name: '',
-    position: '',
-    email: '',
-    gender: '',
-    status: '',
-  });
-  const [emailError, setEmailError] = useState<string>('');
 
-  const empCollectionRef = collection(db, 'Employee');
+  const logCollectionRef = collection(db, 'Access');
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchLogs = async () => {
       setLoading(true);
       try {
-        const snapshot = await getDocs(empCollectionRef);
-        const usersData: User[] = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() }) as User,
-        );
-        setRows(usersData);
+        const snapshot = await getDocs(logCollectionRef);
+        const logsData: AccessLog[] = snapshot.docs.map((doc) => {
+          const data = doc.data();
+
+          // Convert Firestore Timestamps to readable strings
+          const formattedDate = (data.date as Timestamp)?.toDate().toLocaleDateString() || '';
+          const formattedCheckin = (data.checkin as Timestamp)?.toDate().toLocaleTimeString() || '';
+          const formattedCheckout = (data.checkout as Timestamp)?.toDate().toLocaleTimeString() || '';
+
+          return {
+            id: doc.id,
+            name: data.name || '',
+            position: data.position || '',
+            date: formattedDate,
+            checkinTime: formattedCheckin,
+            checkoutTime: formattedCheckout,
+          } as AccessLog;
+        });
+
+        setRows(logsData);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching logs:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchUsers();
+    fetchLogs();
   }, []);
+
+  
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -105,17 +107,17 @@ export default function UsersList() {
 
   const filteredRows = rows.filter(
     (row) =>
-      row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      row.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      (row.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (row.position?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
-  const deleteUser = async (id: string) => {
-    await deleteDoc(doc(db, 'Employee', id));
-    Swal.fire('Deleted!', 'The user has been deleted.', 'success');
+  const deleteLog = async (id: string) => {
+    await deleteDoc(doc(db, 'Access', id));
+    Swal.fire('Deleted!', 'The log has been deleted.', 'success');
     setRows((prevRows) => prevRows.filter((row) => row.id !== id));
   };
 
-  const deleteSelectedUsers = async () => {
+  const deleteSelectedLogs = async () => {
     Swal.fire({
       title: 'Are you sure?',
       text: "You won't be able to revert this!",
@@ -126,118 +128,34 @@ export default function UsersList() {
       confirmButtonText: 'Yes, delete selected!',
     }).then(async (result) => {
       if (result.isConfirmed) {
-        await Promise.all(selected.map((id) => deleteUser(id)));
+        await Promise.all(selected.map((id) => deleteLog(id)));
         setSelected([]);
       }
     });
   };
 
-  const handleInputChange = (
-    e:
-      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-      | React.ChangeEvent<{ name?: string; value: unknown }>,
-  ) => {
-    const { name, value } = e.target as
-      | HTMLInputElement
-      | HTMLTextAreaElement
-      | { name?: string; value: unknown };
-
-    if (name === 'email' && typeof value === 'string' && value !== '') {
-      const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-      if (!emailPattern.test(value)) {
-        setEmailError('Please enter a valid email address.');
-        return;
-      }
-      setEmailError('');
-    }
-
-    setUserForm({ ...userForm, [name!]: value });
-  };
-
-  const sendConfirmationEmail = (email: string) => {
-    console.log(`Confirmation email sent to ${email}`);
-  };
-
-  const addUser = async () => {
-    const newUID = `UNIPOD${Math.floor(100 + Math.random() * 900)}`;
-    const newUser = { ...userForm, uid: newUID, status: 'active' };
-
-    await addDoc(empCollectionRef, newUser);
-    setRows((prevRows) => [...prevRows, { ...newUser, id: newUID } as User]);
-    setOpenModal(false);
-    sendConfirmationEmail(userForm.email);
-    Swal.fire('Added!', 'New employee has been added.', 'success');
-  };
-
-  const updateUser = async () => {
-    const userDoc = doc(db, 'Employee', editUserId!);
-    await updateDoc(userDoc, userForm);
-    setRows((prevRows) =>
-      prevRows.map((row) => (row.id === editUserId ? { ...row, ...userForm } : row)),
+  const exportToXLS = () => {
+    const ws = XLSX.utils.json_to_sheet(
+      rows.map(row => ({
+        Name: row.name,
+        Position: row.position,
+        Date: row.date,
+        'Check-In Time': row.checkinTime,
+        'Check-Out Time': row.checkoutTime
+      }))
     );
-    setOpenModal(false);
-    setEditUserId(null);
-    Swal.fire('Updated!', 'Employee details have been updated.', 'success');
-  };
-
-  const toggleStatus = async (user: User) => {
-    const newStatus = user.status === 'active' ? 'inactive' : 'active';
-    const userDoc = doc(db, 'Employee', user.id);
-    await updateDoc(userDoc, { status: newStatus });
-    setRows((prevRows) =>
-      prevRows.map((row) => (row.id === user.id ? { ...row, status: newStatus } : row)),
-    );
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editUserId) {
-      updateUser();
-    } else {
-      addUser();
-    }
-  };
-
-  const openAddUserModal = () => {
-    setEditUserId(null);
-    setUserForm({ name: '', position: '', email: '', gender: '', status: '' });
-    setOpenModal(true);
-  };
-
-  const openDeleteModal = (user: User) => {
-    Swal.fire({
-      title: 'Are you sure?',
-      text: `Delete user ${user.name}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, delete it!',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        deleteUser(user.id);
-      }
-    });
-  };
-
-  const modalStyle = {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 400,
-    bgcolor: 'background.paper',
-    boxShadow: 24,
-    p: 4,
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "AccessLog");
+    XLSX.writeFile(wb, "AccessLog.xlsx");
   };
 
   return (
     <Paper sx={{ p: 3 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-        <Typography variant="h5">Users</Typography>
+        <Typography variant="h5">Access Logs</Typography>
         <Stack direction="row" spacing={2}>
           <TextField
-            placeholder="Search by name or email"
+            placeholder="Search by name or position"
             variant="outlined"
             size="small"
             value={searchTerm}
@@ -250,15 +168,15 @@ export default function UsersList() {
               ),
             }}
           />
-          <Button variant="contained" startIcon={<AddCircleIcon />} onClick={openAddUserModal}>
-            Add User
+          <Button variant="contained" onClick={exportToXLS}>
+            Export to XLS
           </Button>
           {selected.length > 0 && (
             <Button
               variant="outlined"
               color="secondary"
               startIcon={<DeleteIcon />}
-              onClick={deleteSelectedUsers}
+              onClick={deleteSelectedLogs}
             >
               Delete Selected
             </Button>
@@ -283,10 +201,10 @@ export default function UsersList() {
                   />
                 </TableCell>
                 <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
                 <TableCell>Position</TableCell>
-                <TableCell>Gender</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Check-In Time</TableCell>
+                <TableCell>Check-Out Time</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -313,40 +231,16 @@ export default function UsersList() {
                       />
                     </TableCell>
                     <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.email}</TableCell>
                     <TableCell>{row.position}</TableCell>
-                    <TableCell>{row.gender}</TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={row.status === 'active'}
-                        onChange={() => toggleStatus(row)}
-                        color="primary"
-                      />
-                      {row.status}
-                    </TableCell>
+                    <TableCell>{row.date}</TableCell>
+                    <TableCell>{row.checkinTime}</TableCell>
+                    <TableCell>{row.checkoutTime}</TableCell>
                     <TableCell align="right">
-                      <IconButton
-                        color="primary"
-                        onClick={() => {
-                          setEditUserId(row.id);
-                          setUserForm({
-                            name: row.name,
-                            position: row.position,
-                            email: row.email,
-                            gender: row.gender,
-                            status: row.status,
-                          });
-                          setOpenModal(true);
-                        }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton color="error" onClick={() => openDeleteModal(row)}>
+                      <IconButton color="error" onClick={() => deleteLog(row.id)}>
                         <DeleteIcon />
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                  
                 ))}
             </TableBody>
           </Table>
@@ -360,72 +254,6 @@ export default function UsersList() {
         rowsPerPage={rowsPerPage}
         onRowsPerPageChange={handleChangeRowsPerPage}
       />
-
-      <Modal open={openModal} onClose={() => setOpenModal(false)}>
-        <Box component="form" sx={modalStyle} onSubmit={handleSubmit}>
-          <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
-            {editUserId ? 'Edit User' : 'Add User'}
-          </Typography>
-          <TextField
-            label="Name"
-            fullWidth
-            name="name"
-            value={userForm.name}
-            onChange={handleInputChange}
-            sx={{ mb: 2 }}
-          />
-          <Select
-            label="Position"
-            name="position"
-            value={userForm.position}
-            onChange={(e) =>
-              handleInputChange(e as React.ChangeEvent<{ name?: string; value: unknown }>)
-            }
-            fullWidth
-            margin="dense"
-          >
-            <MenuItem value="">
-              <em>Select Position</em>
-            </MenuItem>
-            <MenuItem value="manager">Manager</MenuItem>
-            <MenuItem value="support">Support</MenuItem>
-            <MenuItem value="programmer">Programmer</MenuItem>
-            <MenuItem value="intern">Intern</MenuItem>
-            <MenuItem value="innovator">Innovator</MenuItem>
-            <MenuItem value="member">Member</MenuItem>
-          </Select>
-          <TextField
-            margin="normal"
-            fullWidth
-            name="email"
-            label="Email"
-            value={userForm.email}
-            onChange={handleInputChange}
-            required
-            error={!!emailError}
-            helperText={emailError}
-          />
-          <Select
-            name="gender"
-            fullWidth
-            value={userForm.gender}
-            onChange={(e) =>
-              handleInputChange(e as React.ChangeEvent<{ name?: string; value: unknown }>)
-            }
-            required
-          >
-            <MenuItem value="">
-              <em>Select Gender</em>
-            </MenuItem>
-            <MenuItem value="Male">Male</MenuItem>
-            <MenuItem value="Female">Female</MenuItem>
-          </Select>
-
-          <Button type="submit" variant="contained" color="primary" style={{marginTop: '1rem',}} disabled={Boolean(emailError)}>
-            {editUserId ? 'Update' : 'Add'} User
-          </Button>
-        </Box>
-      </Modal>
     </Paper>
   );
 }
